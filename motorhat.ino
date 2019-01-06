@@ -54,7 +54,7 @@
 #define REVERSE_MOTOR_2
 
 /*
-	СТАТУС:
+	СТАТУС представляет собой одну/две буквы и новую строку. Каждая буква передаёт состояние одного мотора:
 	o = открыто
 	c = закрыто
 	C = движется к закрытию
@@ -66,9 +66,6 @@
 	O = открыть
 	С = закрыть
 	A = отмена
-
- 	TODO:
- 	- ввести два статуса - для двух моторов.
 */
 
 #ifdef UNIPOLAR_1_WIRE_1
@@ -191,7 +188,9 @@ ISR(TIMER1_OVF_vect) {
 		// ...
 	#else
 		Serial.write(status1);
-		Serial.write(status2);
+		#ifdef DC_2_WIRE_1 || UNIPOLAR_2_WIRE_1
+			Serial.write(status2);
+		#endif
 		Serial.println();
 	#endif
 
@@ -211,21 +210,23 @@ ISR(TIMER1_OVF_vect) {
 			break;
 	}
 
-	switch (cmd2) {
-		case 'O':
-		case 'C':
-			if (timeout >= TIMEOUT) {
-				#ifdef DEBUG
-					Serial.println("got timeout 2");
-				#endif
+	#ifdef DC_2_WIRE_1 || UNIPOLAR_2_WIRE_1
+		switch (cmd2) {
+			case 'O':
+			case 'C':
+				if (timeout >= TIMEOUT) {
+					#ifdef DEBUG
+						Serial.println("got timeout 2");
+					#endif
 
-				stop_motors(2);
+					stop_motors(2);
 
-				status2 = 'E';
-				cmd2    = NULL;
-			}
-			break;
-	}
+					status2 = 'E';
+					cmd2    = NULL;
+				}
+				break;
+		}
+	#endif
 
 	timeout++;
 }
@@ -410,62 +411,64 @@ void loop() {
 			#endif
 	}
 
-	switch (cmd2) {
-		case 'O':
-			if (digitalRead(SWITCH_2_OPEN) == 0) {
-				#ifdef DEBUG
-					Serial.println("got open sw 2");
-				#endif
+	#ifdef DC_2_WIRE_1 || UNIPOLAR_2_WIRE_1
+		switch (cmd2) {
+			case 'O':
+				if (digitalRead(SWITCH_2_OPEN) == 0) {
+					#ifdef DEBUG
+						Serial.println("got open sw 2");
+					#endif
 
+					#ifdef UNIPOLAR_2_WIRE_1
+						motor2.setAcceleration(9999.0);
+						motor2.stop();
+					#endif
+
+					#ifdef DC_2_WIRE_1
+						digitalWrite(DC_2_WIRE_1, LOW);
+						digitalWrite(DC_2_WIRE_2, LOW);
+					#endif
+
+					status2 = 'o';
+					cmd2    = NULL;
+				}
+				break;
+
+			case 'C':
+				if (digitalRead(SWITCH_2_CLOSE) == 0) {
+					#ifdef DEBUG
+						Serial.println("got close sw 2");
+					#endif
+
+					#ifdef UNIPOLAR_2_WIRE_1
+						motor2.setAcceleration(9999.0);
+						motor2.stop();
+					#endif
+
+					#ifdef DC_2_WIRE_1
+						digitalWrite(DC_2_WIRE_1, LOW);
+						digitalWrite(DC_2_WIRE_2, LOW);
+					#endif
+
+					status2 = 'c';
+					cmd2    = NULL;
+				}
+				break;
+
+			default:
 				#ifdef UNIPOLAR_2_WIRE_1
-					motor2.setAcceleration(9999.0);
-					motor2.stop();
+					digitalWrite(UNIPOLAR_2_WIRE_1, LOW);
+					digitalWrite(UNIPOLAR_2_WIRE_2, LOW);
+					digitalWrite(UNIPOLAR_2_WIRE_3, LOW);
+					digitalWrite(UNIPOLAR_2_WIRE_4, LOW);
 				#endif
 
 				#ifdef DC_2_WIRE_1
 					digitalWrite(DC_2_WIRE_1, LOW);
 					digitalWrite(DC_2_WIRE_2, LOW);
 				#endif
-
-				status2 = 'o';
-				cmd2    = NULL;
-			}
-			break;
-
-		case 'C':
-			if (digitalRead(SWITCH_2_CLOSE) == 0) {
-				#ifdef DEBUG
-					Serial.println("got close sw 2");
-				#endif
-
-				#ifdef UNIPOLAR_2_WIRE_1
-					motor2.setAcceleration(9999.0);
-					motor2.stop();
-				#endif
-
-				#ifdef DC_2_WIRE_1
-					digitalWrite(DC_2_WIRE_1, LOW);
-					digitalWrite(DC_2_WIRE_2, LOW);
-				#endif
-
-				status2 = 'c';
-				cmd2    = NULL;
-			}
-			break;
-
-		default:
-			#ifdef UNIPOLAR_2_WIRE_1
-				digitalWrite(UNIPOLAR_2_WIRE_1, LOW);
-				digitalWrite(UNIPOLAR_2_WIRE_2, LOW);
-				digitalWrite(UNIPOLAR_2_WIRE_3, LOW);
-				digitalWrite(UNIPOLAR_2_WIRE_4, LOW);
-			#endif
-
-			#ifdef DC_2_WIRE_1
-				digitalWrite(DC_2_WIRE_1, LOW);
-				digitalWrite(DC_2_WIRE_2, LOW);
-			#endif
-	}
+		}
+	#endif
 
 	#ifdef UNIPOLAR_1_WIRE_1
 		motor1.run();
